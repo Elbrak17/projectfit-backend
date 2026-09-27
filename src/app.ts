@@ -4,8 +4,13 @@ import { profileRoutes } from './routes/profile';
 import { opportunityRoutes } from './routes/opportunities';
 import { decisionRoutes } from './routes/decision';
 
-export function buildApp() {
-  const app = Fastify({ logger: true });
+export interface BuildAppOptions {
+  /** Defaults to true; tests inject `false` to keep the runner output readable. */
+  logger?: boolean;
+}
+
+export function buildApp(opts: BuildAppOptions = {}) {
+  const app = Fastify({ logger: opts.logger ?? true });
 
   app.register(cors, { origin: true });
 

@@ -8,8 +8,8 @@ export function decide(
   profile: OpportunityDNA,
   devilPenalties: Map<string, number> = new Map()
 ): Decision {
-  // 1-2. contraintes déjà appliquées + expirés exclus
-  const viable = opportunities.filter((o) => o.hard_constraint_status === 'PASS');
+  // 1-2. contraintes déjà appliquées + expirés exclus + REJECTED (Devil) exclus du classement
+  const viable = opportunities.filter((o) => o.hard_constraint_status === 'PASS' && o.status !== 'REJECTED');
   // 3-6. tri sur score total (déjà ajusté devil)
   const ranked = [...viable].sort((a, b) => (b._scores?.total ?? 0) - (a._scores?.total ?? 0));
 

@@ -11,10 +11,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Compile the sources.
+# Copy the sources, then typecheck + compile + run the test suite.
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run typecheck && npm run build
+RUN npm run typecheck && npm test
 
 # ─────────────────────────────────────────────────────────
 # Stage 2 — runtime: production deps only, no toolchain

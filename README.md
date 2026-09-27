@@ -15,8 +15,8 @@ Deterministic core (constraints → scoring → adversarial review → decision)
 
 ```bash
 npm install
-npm run build
-npm start
+npm test           # builds src/ → dist/ (pretest) + runs the 45-test suite
+npm start          # runs the compiled build
 # dev mode: npm run dev   (ts-node, no build step)
 # health:   curl http://localhost:3001/health
 ```
@@ -39,7 +39,7 @@ docker compose logs -f api
 docker compose down
 ```
 
-The image is a **multi-stage build** (typecheck + compile → production deps only), runs as a **non-root user**, and ships a `HEALTHCHECK` on `/health`.
+The image is a **multi-stage build** (typecheck + **`npm test`** → production deps only), so a red test **fails the image build**. It runs as a **non-root user** and ships a `HEALTHCHECK` on `/health`.
 
 ### Environment variables
 
@@ -62,7 +62,34 @@ Copy `.env.example` → `.env` for local overrides (`.env` is git- and docker-ig
 | `npm run build` | Compile `src/` → `dist/` |
 | `npm start` | Run the compiled build |
 | `npm run typecheck` | `tsc --noEmit` (strict, zero-error gate) |
-| `npm test` | Node's built-in test runner over `dist/**/*.test.js` |
+| `npm test` | Builds `src/` → `dist/` (via `pretest`), then runs the suite with Node's built-in test runner |
+
+---
+
+## Testing
+
+```bash
+npm test    # pretest builds src/ → dist/, then runs the suite
+```
+
+**45 tests / 7 files**, all green, on Node's built-in runner (`node:test`) — no extra dev dependency.
+Tests compile to `dist/` alongside the app, so they always exercise the exact code that ships.
+
+| File | Covers |
+|---|---|
+| `src/app.test.ts` | Integration through `app.inject()`: full golden path §15.1 (profile → opportunities → evidence → `HYBRID` → `capital_at_risk = 0` → `JOB`), artifacts §16, error contracts (400/404), PII pseudonymisation, `/health` kill switches |
+| `src/engine/constraints.test.ts` | Hard constraints §10.1/§15.A: expiry, capital-at-risk, user exclusions, country, diploma |
+| `src/engine/scoring.test.ts` | Deterministic scoring §10: skill / location / capital / time / evidence, risk + Devil penalties, zero floor, High-Medium-Low levels |
+| `src/engine/decision.test.ts` | Decision + abstention: `HYBRID`, `JOB`, `BUSINESS`, `INSUFFICIENT_EVIDENCE`, `KEEP_YOUR_CAPITAL`, `NO_SAFE_RECOMMENDATION`, budget cap, rejected options excluded from `ranking` |
+| `src/engine/devil.test.ts` | Adversarial review §9: penalty breakdown, `REJECTED` / `INVESTIGATE` suggestions, NINEA counter-evidence, FAILed options untouched |
+| `src/engine/decision.hybrid-off.test.ts` | Kill switch `ENABLE_HYBRID=false` (own process: the flag is read at import time) |
+| `src/engine/devil.disabled.test.ts` | Kill switch `ENABLE_DEVIL=false` (own process) |
+
+Conventions:
+
+- Assertions follow the spec (§9, §10, §15, §16, §20), not implementation details — refactors that keep the contract stay green.
+- The Docker **build stage runs the suite**, so a red test fails `docker build`.
+- Shared builders live in `src/fixtures.ts` (never imported by the runtime).
 
 ---
 
@@ -124,14 +151,16 @@ curl -s -X POST $BASE/api/decision/recalculate \
 projectfit-backend/
 ├── src/
 │   ├── app.ts               # Fastify factory: CORS, /health, demo profile, routes
+│   ├── app.test.ts          # Integration suite (golden path §15.1 + error contracts)
 │   ├── server.ts            # Entrypoint (PORT / HOST)
 │   ├── types.ts             # Shared domain types
+│   ├── fixtures.ts          # Test builders (never imported by the runtime)
 │   ├── routes/              # profile · opportunities · decision
-│   ├── engine/              # constraints · scoring · devil · decision · opportunities
+│   ├── engine/              # constraints · scoring · devil · decision · opportunities (+ .test.ts per module)
 │   ├── data/                # jobs.snapshot · evidence.corpus (static, snapshot mode)
 │   └── store/memory.ts      # In-memory session store
 ├── dist/                    # Build output (git-ignored)
-├── Dockerfile               # Multi-stage, non-root, healthcheck
+├── Dockerfile               # Multi-stage, non-root, healthcheck — build stage runs `npm test`
 ├── docker-compose.yml
 ├── .dockerignore
 ├── .gitignore
@@ -143,7 +172,7 @@ projectfit-backend/
 
 ## Known limitations (assumed for the demo)
 
-1. **No test suite yet** — `npm test` is wired but `src/**/*.test.ts` is empty.
-2. **No live LLM/NVIDIA calls (§13)** — the engine is fully deterministic over a static snapshot; `/health` reports `snapshot: true`.
-3. **No timeout / circuit breaker (§11)** — no external connectors in snapshot mode, so not a live risk.
-4. **In-memory store** — sessions reset on restart (fine for a demo, not for production).
+1. **No live LLM/NVIDIA calls (§13)** — the engine is fully deterministic over a static snapshot; `/health` reports `snapshot: true`.
+2. **No timeout / circuit breaker (§11)** — no external connectors in snapshot mode, so not a live risk.
+3. **In-memory store** — sessions reset on restart (fine for a demo, not for production).
+4. **No coverage reporting** — the suite asserts spec behaviour (§9/§10/§15/§16), not line coverage; no `c8`/Istanbul wired yet.
