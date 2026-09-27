@@ -142,6 +142,7 @@ export class NvidiaLLM implements LLMProvider {
           temperature: 0,
           max_tokens: NVIDIA_LLM_MAX_TOKENS,
           response_format: { type: 'json_object' },
+          chat_template_kwargs: { enable_thinking: false },
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: buildUserPrompt(query, passages) }
