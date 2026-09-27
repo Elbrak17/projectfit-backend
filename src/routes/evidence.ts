@@ -85,18 +85,11 @@ export async function evidenceRoutes(app: FastifyInstance) {
     const result = await runEvidencePipeline(profile!, opportunityTitle, { topK: b.top_k ?? 18, topN: b.top_n ?? 5 });
 
     if (session) {
-      session.evidence = result.reranked.map((r) => ({
-        source_id: r.source_id,
-        source_url: r.source_url,
-        publisher: r.publisher,
-        observed_at: new Date().toISOString().slice(0, 10),
-        geography_level: r.geography_level as 'LOCAL' | 'REGIONAL' | 'NATIONAL',
-        field_or_passage: r.text,
-        value: r.text,
-        evidence_type: 'OBSERVED' as const,
-        freshness: 'fresh' as const,
-        confidence: result.evidence_confidence
-      }));
+      // Provenance originale conservée intacte : on recopie les métadonnées du chunk
+      // reranké (observed_at, evidence_type, freshness, value, confidence, published_at)
+      // au lieu de les remplacer. Seul le passage + score portent l'analyse.
+      const { chunkProvenance } = await import('../evidence/provenance');
+      session.evidence = result.reranked.map((r) => chunkProvenance(r, result.evidence_confidence));
       saveSession(session);
     }
 

@@ -90,26 +90,33 @@ test('golden path §15.1 : profil → opportunités → preuves → HYBRID → c
   assert.equal(normalize.statusCode, 200);
   const { session_id: sid } = parse<{ session_id: string }>(normalize.body);
 
-  // 2. Génération : snapshot JOB SN + 2 hypothèses BUSINESS
+  // 2. Génération : snapshot JOB réel SN (76 offres SenJob) + 2 hypothèses BUSINESS
   const gen = await app.inject({ method: 'POST', url: '/api/opportunities/generate', payload: { session_id: sid } });
   assert.equal(gen.statusCode, 200);
   const { opportunities } = parse<{ opportunities: Opportunity[] }>(gen.body);
-  assert.equal(opportunities.length, 8, '6 offres JOB (snapshot SN) + 2 hypothèses BUSINESS');
-  assert.equal(opportunities.filter((o) => o.type === 'JOB').length, 6);
+  assert.equal(opportunities.length, 78, '76 offres JOB réelles (snapshot SenJob) + 2 hypothèses BUSINESS');
+  assert.equal(opportunities.filter((o) => o.type === 'JOB').length, 76);
   assert.equal(opportunities.filter((o) => o.type === 'BUSINESS').length, 2);
   for (const o of opportunities) {
     assert.ok(typeof o._scores?.total === 'number', `${o.id} doit être scoré`);
     assert.ok(['PASS', 'FAIL'].includes(o.hard_constraint_status));
   }
   const failIds = opportunities.filter((o) => o.hard_constraint_status === 'FAIL').map((o) => o.id);
-  assert.ok(failIds.includes('job-006'), 'exclusion "restauration" → FAIL (§15.A)');
-  assert.ok(failIds.includes('job-004'), 'offre expirée → FAIL (§15.A)');
+  assert.ok(failIds.length > 0, 'des offres doivent échouer une contrainte dure');
+  // FAIL stables (indépendants de la date d’exécution) : hors-zone Dakar + mobilité faible.
+  for (const id of ['senjob-163743', 'senjob-163984', 'senjob-164016', 'senjob-164028']) {
+    assert.ok(failIds.includes(id), `${id} hors-zone → FAIL (§15.A localisation)`);
+  }
+  // Chaque opportunité JOB cite son URL individuelle, jamais le listing générique.
+  for (const o of opportunities.filter((x) => x.type === 'JOB')) {
+    assert.ok(o.source_refs.length > 0 && o.source_refs[0].includes('/jobseekers/'), `${o.id} : URL individuelle requise`);
+  }
 
-  // 3. Preuves ANSD/DER
+  // 3. Preuves : Evidence Store officiel (11 OBSERVED + 2 DERIVED + 1 ESTIMATED)
   const ev = await app.inject({ method: 'POST', url: '/api/evidence/retrieve', payload: { session_id: sid } });
   assert.equal(ev.statusCode, 200);
   const { evidence } = parse<{ evidence: unknown[] }>(ev.body);
-  assert.equal(evidence.length, 4);
+  assert.equal(evidence.length, 14);
 
   // 4. Évaluation : Devil + décision déterministe
   const evalRes = await app.inject({ method: 'POST', url: '/api/decision/evaluate', payload: { session_id: sid } });
@@ -133,8 +140,8 @@ test('golden path §15.1 : profil → opportunités → preuves → HYBRID → c
   for (const key of ['normalized_profile', 'opportunities', 'evidence', 'devil_findings', 'scores', 'decision']) {
     assert.ok(key in session, `artefact manquant : ${key}`);
   }
-  assert.equal(session.opportunities.length, 8);
-  assert.equal(Object.keys(session.scores).length, 8);
+  assert.equal(session.opportunities.length, 78);
+  assert.equal(Object.keys(session.scores).length, 78);
 
   // 6. Preuve live §16 : capital à risque = 0 → le business s’efface, JOB émerge
   const rec = await app.inject({

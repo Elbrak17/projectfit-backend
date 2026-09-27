@@ -6,7 +6,7 @@ import { makeProfile } from '../fixtures';
 import { buildApp } from '../app';
 
 describe('pipeline evidence-first', () => {
-  it('snapshot-first sans clés : retrieved 10, reranked 5, fallbacks marqués', async () => {
+  it('snapshot-first sans clés : retrieved=TopK, reranked 5, fallbacks marqués', async () => {
     resetPipelineCache();
     const savedNvidia = process.env.NVIDIA_API_KEY;
     const savedModal = process.env.MODAL_RERANKER_URL;
@@ -14,14 +14,14 @@ describe('pipeline evidence-first', () => {
     delete process.env.MODAL_RERANKER_URL;
     try {
       const res = await runEvidencePipeline(makeProfile(), 'Assistant Marketing Digital');
-      assert.equal(res.retrieved_count, 10);
+      assert.equal(res.retrieved_count, 18, 'Top-K passages candidats (§spec 15-20)');
       assert.equal(res.reranked_count, 5);
       assert.equal(res.retrieval_method, 'vector');
       assert.equal(res.rerank_method, 'passthrough-fallback');
       assert.equal(res.rerank_fallback, true);
       assert.equal(res.llm_method, 'noop-fallback');
       assert.equal(res.llm_fallback, true);
-      assert.ok(res.reranked[0].chunk_id.includes('job-job-001'));
+      assert.ok(res.reranked[0].chunk_id.includes('job-senjob-163993'));
       assert.ok(res.sources.length > 0);
       assert.ok(res.deterministic_note.includes('Decision Engine'));
       assert.ok(res.evidence_confidence >= 0 && res.evidence_confidence <= 100);

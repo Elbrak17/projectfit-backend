@@ -20,10 +20,16 @@ export function businessId(title: string): string {
 
 export function buildJobOpportunities(profile: OpportunityDNA): { opp: Opportunity; skills: string[] }[] {
   return JOBS_SNAPSHOT.filter((j) => j.country_id === profile.country_id).map((j) => {
+    // Champs non publiés sur la page source -> UNKNOWN explicite, jamais inventé.
+    const edu = j.education_required ?? 'UNKNOWN — diplôme non publié sur la page source';
+    const expTxt =
+      typeof j.experience_required_months === 'number'
+        ? `${j.experience_required_months} mois exp.`
+        : 'expérience non quantifiée sur la page source';
     const opp: Opportunity = {
       id: j.id,
       type: 'JOB',
-      title: `${j.title} — ${j.employer}`,
+      title: j.title,
       region: j.region,
       country_id: j.country_id,
       source_refs: [j.source_url],
@@ -37,14 +43,17 @@ export function buildJobOpportunities(profile: OpportunityDNA): { opp: Opportuni
       evidence_confidence: 'High',
       hard_constraint_status: 'PASS',
       hard_constraint_reasons: [],
-      assumptions: [`Exigences: ${j.education_required}, ${j.experience_required_months} mois exp.`],
-      unknowns: ['Processus exact de recrutement', 'Rémunération exacte (non publiée)'],
+      assumptions: [`Exigences: ${edu}, ${expTxt}.`],
+      unknowns: [
+        'Employeur non publié sur la page source (UNKNOWN)',
+        'Rémunération exacte (non publiée)',
+        'Processus exact de recrutement'
+      ],
       next_validation_step: 'Apply / combler le skill gap indiqué',
       status: 'PROMISING',
       education_required: j.education_required,
       experience_required_months: j.experience_required_months,
       expires_at: j.expires_at,
-      employer: j.employer,
       contract_type: j.contract_type,
       source_url: j.source_url
     };

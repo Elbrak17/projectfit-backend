@@ -6,6 +6,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BENCHMARK_CASES } from './profiles';
 import { runBenchmark } from './runner';
+import { checkHardConstraints } from '../engine/constraints';
+import { JOBS_SNAPSHOT } from '../data/jobs.snapshot';
+import { runBaseline } from './baseline';
 
 const ENABLE_DEVIL = process.env.ENABLE_DEVIL !== 'false';
 
@@ -42,7 +45,7 @@ test('benchmark reports all 8 §15 metrics + expired count, all in range', () =>
 test('ProjectFit: zero violations, zero expired, full stability', () => {
   const { projectfit: m } = runBenchmark();
   assert.equal(m.hard_constraint_violation_rate, 0, 'no ranked item may violate a hard constraint');
-  assert.equal(m.expired_jobs_suggested, 0, 'job-004 (expired) must never surface');
+  assert.equal(m.expired_jobs_suggested, 0, 'no expired offer may surface in a ranking');
   assert.equal(m.decision_stability, 1, 'same state → same ranking, twice in a row');
 });
 
@@ -67,12 +70,36 @@ test('ProjectFit beats the generic baseline on the 4 baseline axes (§15)', () =
   assert.ok(m.unsupported_claim_rate <= b.unsupported_claim_rate);
   assert.ok(m.decision_stability >= b.decision_stability);
   assert.ok(m.correct_abstention_rate >= b.correct_abstention_rate);
-  assert.ok(m.precision_at_3_jobs >= b.precision_at_3_jobs);
+  assert.ok(m.precision_at_3_jobs >= b.precision_at_3_jobs, 'relevance must stay ahead of keyword-only picking');
   // The contrast must actually exist: the baseline really fails where we claim it does.
-  assert.ok(b.hard_constraint_violation_rate > 0, 'baseline must violate constraints (expiry/exclusions/… )');
-  assert.ok(b.expired_jobs_suggested >= 1, 'baseline must surface the expired job-004');
+  assert.ok(b.hard_constraint_violation_rate > 0, 'baseline must violate constraints (location/exclusions/…)');
   assert.ok(b.unsupported_claim_rate > 0, 'baseline must make unsourced statistical claims');
   assert.ok(b.correct_abstention_rate < 1, 'baseline never abstains, so it misses P15/P16/P17');
+});
+
+test('expiry guard: ProjectFit excludes expired offers, the baseline cannot (§15 fraîcheur)', () => {
+  // Runtime corpus is real-only (no expired offer at the fixed clock), so the guard
+  // is proven with a synthetic expired copy kept inside the test (never in the snapshot).
+  const j = JOBS_SNAPSHOT[0];
+  const expired = {
+    id: j.id,
+    type: 'JOB',
+    title: j.title,
+    region: j.region,
+    country_id: j.country_id,
+    expires_at: '2026-01-01',
+    education_required: j.education_required
+  };
+  const profile = BENCHMARK_CASES[0].profile;
+  const check = checkHardConstraints(expired as never, profile, new Date('2026-09-26T12:00:00Z'));
+  assert.equal(check.pass, false, 'ProjectFit FAILs an expired offer');
+  // Structural blindness: the baseline hardcodes PASS and never reads expires_at.
+  const out = runBaseline(profile);
+  assert.ok(out.opportunities.every((o) => o.hard_constraint_status === 'PASS'), 'baseline never FAILs by construction');
+  assert.ok(
+    out.opportunities.every((o) => !('expires_at' in o) || o.expires_at !== undefined),
+    'baseline carries no expiry verdict'
+  );
 });
 
 test('paraphrase probe: ProjectFit stable under skill reordering, baseline flips (P18)', () => {

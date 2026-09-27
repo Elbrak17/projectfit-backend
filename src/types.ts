@@ -81,12 +81,17 @@ export interface Evidence {
   source_url: string;
   publisher: string;
   observed_at: string;
+  published_at?: string;
   geography_level: GeographyLevel;
   field_or_passage: string;
   value: string;
   evidence_type: EvidenceKind;
   freshness: 'fresh' | 'aging' | 'stale';
   confidence: number; // 0-100
+  /** Provenance conservée jusqu'au résultat final : liens sources d'une conclusion DERIVED/ESTIMATED. Absent pour OBSERVED. */
+  derived_from?: string[];
+  /** Provenance par champ (séparation observé/dérivé/inconnu). */
+  field_provenance?: Record<string, EvidenceKind>;
 }
 
 export interface Source {

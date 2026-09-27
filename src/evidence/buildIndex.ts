@@ -14,6 +14,18 @@ async function main() {
   const provider = getEmbeddingProvider();
   const chunks = chunkCorpus(CORPUS_DOCS);
   const index = await buildIndex(chunks, provider);
+  // Garde-fou : un ancien index présent avec une empreinte différente est écrasé, jamais réutilisé.
+  const { existsSync, readFileSync } = await import('fs');
+  if (existsSync(out)) {
+    try {
+      const prev = JSON.parse(readFileSync(out, 'utf8')) as { corpus_fingerprint?: string };
+      if (prev.corpus_fingerprint && prev.corpus_fingerprint !== index.corpus_fingerprint) {
+        console.log(`stale index détecté (empreinte ${prev.corpus_fingerprint.slice(0, 12)}… ≠ corpus courant) → reconstruction.`);
+      }
+    } catch {
+      console.log('ancien index illisible → reconstruction.');
+    }
+  }
   writeFileSync(out, JSON.stringify(index, null, 2), 'utf8');
   // eslint-disable-next-line no-console
   console.log(
@@ -24,6 +36,7 @@ async function main() {
         provider: index.provider,
         model: index.model,
         dim: index.dim,
+        corpus_fingerprint: index.corpus_fingerprint,
         out
       },
       null,

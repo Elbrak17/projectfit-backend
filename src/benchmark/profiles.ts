@@ -46,14 +46,14 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     id: 'P01',
     label: 'demo-hybrid (golden path §15.1)',
     profile: base({ constraints: ['restauration'] }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821'],
     shouldAbstain: false
   },
   {
     id: 'P02',
     label: 'zero-risk budget → jobs only (live proof)',
     profile: base({ constraints: ['restauration'], capital_at_risk: 0 }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821'],
     shouldAbstain: false
   },
   {
@@ -63,18 +63,18 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       skills: [skill('python'), skill('api'), skill('sql')],
       education: 'Bac+3 informatique'
     }),
-    relevantJobIds: ['job-003'],
+    relevantJobIds: ['senjob-163983', 'senjob-164024'],
     shouldAbstain: false
   },
   {
     id: 'P04',
-    label: 'field sales, Thiès',
+    label: 'field sales, Thiès (Vendeuse Keur Massar)',
     profile: base({
       skills: [skill('vente'), skill('negociation'), skill('wolof')],
       education: 'Bac+2',
       location: 'Thiès'
     }),
-    relevantJobIds: ['job-002'],
+    relevantJobIds: ['senjob-164028'],
     shouldAbstain: false
   },
   {
@@ -85,44 +85,44 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       education: 'Bac+2',
       capital_at_risk: 5000
     }),
-    relevantJobIds: ['job-005'],
+    relevantJobIds: ['senjob-163869', 'senjob-163957', 'senjob-164007'],
     shouldAbstain: false
   },
   {
     id: 'P06',
     label: 'broad exclusions (restauration, cuisine, night)',
     profile: base({ constraints: ['restauration', 'cuisine', 'nuit'] }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821'],
     shouldAbstain: false
   },
   {
     id: 'P07',
-    label: 'low mobility, Dakar (Thiès offer must FAIL)',
+    label: 'low mobility, Dakar (non-Dakar offers must FAIL)',
     profile: base({ mobility: 'faible' }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821'],
     shouldAbstain: false
   },
   {
     id: 'P08',
-    label: 'high mobility, Dakar (Thiès offer eligible)',
+    label: 'high mobility, Dakar (Thiès/Kédougou offers eligible)',
     profile: base({ mobility: 'forte' }),
-    relevantJobIds: ['job-001', 'job-002', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-164010', 'senjob-164028', 'senjob-163821'],
     shouldAbstain: false
   },
   {
     id: 'P09',
-    label: 'no diploma, only the CAP-level job fits',
+    label: 'no diploma, low-barrier sales jobs fit',
     profile: base({
       skills: [skill('vente')],
       education: 'Aucun diplôme',
       mobility: 'moyenne'
     }),
-    relevantJobIds: ['job-006'],
+    relevantJobIds: ['senjob-164028', 'senjob-163996', 'senjob-163896'],
     shouldAbstain: false
   },
   {
     id: 'P10',
-    label: 'accountant, Thiès — only matching offer is expired',
+    label: 'accountant, Thiès — matching posts are Dakar-only (all FAIL location)',
     profile: base({
       skills: [skill('comptabilite'), skill('excel'), skill('sage')],
       education: 'Bac+3 comptabilité',
@@ -139,14 +139,14 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       income_urgency_days: 120,
       capital_at_risk: 50000
     }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821'],
     shouldAbstain: false
   },
   {
     id: 'P12',
     label: 'small capital (B2B fits, stock business does not)',
     profile: base({ available_capital: 50000, capital_at_risk: 10000 }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821'],
     shouldAbstain: false
   },
   {
@@ -157,7 +157,7 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       capital_at_risk: 100000,
       risk_tolerance: 'forte'
     }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821'],
     shouldAbstain: false
   },
   {
@@ -168,7 +168,7 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       education: 'Bac+2',
       mobility: 'moyenne'
     }),
-    relevantJobIds: ['job-002', 'job-005'],
+    relevantJobIds: ['senjob-163996', 'senjob-164028', 'senjob-163994'],
     shouldAbstain: false
   },
   {
@@ -186,34 +186,22 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
   },
   {
     id: 'P16',
-    label: 'excludes everything + zero risk → abstain',
+    label: 'off-coverage region (Kolda) + zero risk → abstain',
     profile: base({
-      capital_at_risk: 0,
-      constraints: [
-        'marketing',
-        'commercial',
-        'vente',
-        'développeur',
-        'python',
-        'comptable',
-        'saisie',
-        'cuisine',
-        'restauration',
-        'commerce',
-        'service',
-        'nuit'
-      ]
+      location: 'Kolda',
+      mobility: 'faible',
+      capital_at_risk: 0
     }),
     relevantJobIds: [],
     shouldAbstain: true
   },
   {
     id: 'P17',
-    label: 'no diploma, immobile, zero risk → abstain',
+    label: 'no diploma, immobile, off-coverage region (Sédhiou) + zero risk → abstain',
     profile: base({
       skills: [skill('vente')],
       education: 'Aucun diplôme',
-      location: 'Thiès',
+      location: 'Sédhiou',
       mobility: 'faible',
       capital_at_risk: 0
     }),
@@ -224,7 +212,7 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
     id: 'P18',
     label: 'tied skills (marketing/saisie) — order-sensitivity probe',
     profile: base({ skills: [skill('marketing'), skill('saisie')] }),
-    relevantJobIds: ['job-001', 'job-005'],
+    relevantJobIds: ['senjob-163993', 'senjob-163896', 'senjob-164010', 'senjob-163821', 'senjob-163869', 'senjob-164007'],
     shouldAbstain: false
   },
   {
@@ -236,14 +224,14 @@ export const BENCHMARK_CASES: BenchmarkCase[] = [
       constraints: ['nuit'],
       capital_at_risk: 15000
     }),
-    relevantJobIds: ['job-005'],
+    relevantJobIds: ['senjob-163869', 'senjob-163957', 'senjob-164007'],
     shouldAbstain: false
   },
   {
     id: 'P20',
     label: 'marketer in Thiès, mobile (Dakar offers eligible)',
     profile: base({ location: 'Thiès', mobility: 'forte' }),
-    relevantJobIds: ['job-001', 'job-002'],
+    relevantJobIds: ['senjob-164028', 'senjob-163993', 'senjob-163821'],
     shouldAbstain: false
   }
 ];

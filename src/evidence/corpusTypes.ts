@@ -3,7 +3,6 @@
 // source_id, source_url, publisher, observed_at, published_at?, country_id,
 // region?, geography_level, category, text, value?, evidence_type, freshness?, confidence?
 import type { EvidenceKind, GeographyLevel } from '../types';
-
 export type CorpusCategory =
   | 'JOB_OFFER'
   | 'ECON_STAT'
@@ -30,6 +29,13 @@ export interface CorpusDoc {
   evidence_type: EvidenceKind;
   freshness?: 'fresh' | 'aging' | 'stale';
   confidence?: number; // 0-100
+  /** IDs d'entrées sources dont une conclusion DERIVED/ESTIMATED est tirée. Absent pour OBSERVED. */
+  derived_from?: string[];
+  /**
+   * Provenance par champ (séparation observé/dérivé/inconnu).
+   * Ex JOB: { title: 'OBSERVED', skills: 'DERIVED', education_required: 'UNKNOWN' }.
+   */
+  field_provenance?: Record<string, EvidenceKind>;
   // Champs JOB
   education_required?: string;
   experience_required_months?: number;
@@ -58,6 +64,8 @@ export interface CorpusChunk {
   freshness?: 'fresh' | 'aging' | 'stale';
   confidence?: number;
   value?: string;
+  derived_from?: string[];
+  field_provenance?: Record<string, EvidenceKind>;
 }
 
 export interface ScoredChunk extends CorpusChunk {

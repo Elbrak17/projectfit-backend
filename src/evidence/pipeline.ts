@@ -4,11 +4,13 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { OpportunityDNA } from '../types';
+import type { GeographyLevel } from '../types';
+import type { EvidenceKind } from '../types';
 import type { ScoredChunk } from './corpusTypes';
 import { CORPUS_DOCS } from './corpus';
 import { chunkCorpus } from './chunking';
 import { getEmbeddingProvider, HashEmbeddingProvider } from './embeddingProvider';
-import { buildIndex, type VectorIndex } from './vectorStore';
+import { buildIndex, indexMatchesCorpus, type VectorIndex } from './vectorStore';
 import { buildEvidenceQuery, retrieveLocal } from './retrieval';
 import { getReranker, RERANK_FALLBACK_PENALTY, MODAL_DEFAULT_TOP_N } from './reranker';
 import { getLLM } from './llm';
@@ -25,7 +27,7 @@ export interface EvidencePipelineResult extends StructuredEvidence {
   llm_fallback: boolean;
   sources: { source_id: string; source_url: string; publisher: string; geography_level: string; count: number }[];
   retrieved: ScoredChunk[];
-  reranked: { chunk_id: string; source_id: string; rerank_score: number; score: number; text: string; source_url: string; publisher: string; geography_level: string; geography_mismatch: boolean }[];
+  reranked: { chunk_id: string; doc_id: string; source_id: string; rerank_score: number; score: number; text: string; source_url: string; publisher: string; geography_level: GeographyLevel; geography_mismatch: boolean; observed_at: string; published_at?: string; evidence_type: EvidenceKind; freshness?: 'fresh' | 'aging' | 'stale'; confidence?: number; value?: string; derived_from?: string[]; field_provenance?: Record<string, EvidenceKind> }[];
   confidence_penalties: { retrieval: number; rerank: number };
   deterministic_note: string;
 }
@@ -37,27 +39,18 @@ function indexPath(): string {
   return join(process.cwd(), 'src', 'data', 'evidence.index.json');
 }
 
-function loadCachedChunks(): ReturnType<typeof chunkCorpus> {
-  try {
-    if (existsSync(indexPath())) {
-      const json = JSON.parse(readFileSync(indexPath(), 'utf8')) as VectorIndex;
-      if (Array.isArray(json.chunks) && json.chunks.length > 0) return json.chunks;
-    }
-  } catch {
-    // snapshot local : on reconstruit depuis le corpus
-  }
-  return chunkCorpus(CORPUS_DOCS);
-}
-
 async function getIndex(): Promise<{ index: VectorIndex; providerName: string }> {
   const provider = getEmbeddingProvider();
   const key = `${provider.name}|${provider.model}|${provider.dim}`;
-  if (cachedIndex && cachedKey === key) return { index: cachedIndex, providerName: provider.name };
-  // Réutilise les vecteurs précalculés si même provider/model/dim.
+  const chunks = chunkCorpus(CORPUS_DOCS);
+  if (cachedIndex && cachedKey === key && indexMatchesCorpus(cachedIndex, chunks, provider)) {
+    return { index: cachedIndex, providerName: provider.name };
+  }
+  // Réutilise les vecteurs précalculés si même provider/model/dim ET même corpus.
   try {
     if (existsSync(indexPath())) {
       const json = JSON.parse(readFileSync(indexPath(), 'utf8')) as VectorIndex;
-      if (json.provider === provider.name && json.model === provider.model && json.dim === provider.dim && Array.isArray(json.vectors) && json.vectors.length === json.chunks.length) {
+      if (indexMatchesCorpus(json, chunks, provider)) {
         cachedIndex = json;
         cachedKey = key;
         return { index: json, providerName: provider.name };
@@ -66,7 +59,6 @@ async function getIndex(): Promise<{ index: VectorIndex; providerName: string }>
   } catch {
     // rebuild ci-dessous
   }
-  const chunks = loadCachedChunks();
   const index = await buildIndex(chunks, provider).catch(async () => {
     // embedding indisponible -> index lexical (vecteurs vides, retrieval catch -> fallback)
     const fallback = new HashEmbeddingProvider();
@@ -143,7 +135,7 @@ export async function runEvidencePipeline(
     llm_fallback: llmFallback,
     sources: [...srcMap.values()],
     retrieved,
-    reranked: reranked.map((r) => ({ chunk_id: r.chunk_id, source_id: r.source_id, rerank_score: r.rerank_score, score: r.score, text: r.text, source_url: r.source_url, publisher: r.publisher, geography_level: r.geography_level, geography_mismatch: r.geography_mismatch })),
+    reranked: reranked.map((r) => ({ chunk_id: r.chunk_id, doc_id: r.doc_id, source_id: r.source_id, rerank_score: r.rerank_score, score: r.score, text: r.text, source_url: r.source_url, publisher: r.publisher, geography_level: r.geography_level, geography_mismatch: r.geography_mismatch, observed_at: r.observed_at, published_at: r.published_at, evidence_type: r.evidence_type, freshness: r.freshness, confidence: r.confidence, value: r.value, derived_from: r.derived_from ? [...r.derived_from] : undefined, field_provenance: r.field_provenance ? { ...r.field_provenance } : undefined })),
     confidence_penalties: { retrieval: confidencePenalty, rerank: rerankPenalty },
     deterministic_note: 'Decision Engine inchangé : contraintes, budget, capital_at_risk, dates, exigences offre et score final non modifiés par le LLM.'
   };

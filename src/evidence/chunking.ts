@@ -14,7 +14,7 @@ export function splitSentences(text: string): string[] {
 }
 
 export function chunkDocument(doc: CorpusDoc, maxChars = MAX_CHUNK_CHARS): CorpusChunk[] {
-  const sentences = splitSentences(doc.text);
+  const sentences = splitSentences(doc.text).flatMap((s) => hardSplit(s, maxChars));
   const chunks: CorpusChunk[] = [];
   let current = '';
   let index = 0;
@@ -44,7 +44,9 @@ export function chunkDocument(doc: CorpusDoc, maxChars = MAX_CHUNK_CHARS): Corpu
       evidence_type: doc.evidence_type,
       freshness: doc.freshness,
       confidence: doc.confidence,
-      value: doc.value
+      value: doc.value,
+      derived_from: doc.derived_from ? [...doc.derived_from] : undefined,
+      field_provenance: doc.field_provenance ? { ...doc.field_provenance } : undefined
     });
     cursor = safeStart + text.length;
     index += 1;
@@ -57,6 +59,29 @@ export function chunkDocument(doc: CorpusDoc, maxChars = MAX_CHUNK_CHARS): Corpu
   }
   flush();
   return chunks;
+}
+
+/** Coupe dure d'une phrase trop longue sur frontières de mots (contrat ≤ maxChars tenu même sans ponctuation). */
+export function hardSplit(sentence: string, maxChars = MAX_CHUNK_CHARS): string[] {
+  if (sentence.length <= maxChars) return [sentence];
+  const words = sentence.split(/\s+/).filter(Boolean);
+  const parts: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    if (w.length > maxChars) {
+      if (cur.trim()) parts.push(cur.trim());
+      // mot pathologique : coupe brute par tranches
+      for (let i = 0; i < w.length; i += maxChars) parts.push(w.slice(i, i + maxChars));
+      cur = '';
+    } else if ((cur + ' ' + w).trim().length > maxChars && cur.trim()) {
+      parts.push(cur.trim());
+      cur = w;
+    } else {
+      cur = cur ? `${cur} ${w}` : w;
+    }
+  }
+  if (cur.trim()) parts.push(cur.trim());
+  return parts.length > 0 ? parts : [sentence];
 }
 
 export function chunkCorpus(docs: CorpusDoc[], maxChars = MAX_CHUNK_CHARS): CorpusChunk[] {

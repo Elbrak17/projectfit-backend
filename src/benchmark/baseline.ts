@@ -37,7 +37,7 @@ export function runBaseline(dna: OpportunityDNA): BaselineOutput {
     .slice(0, 3);
 
   const top = scored[0].job;
-  const topTitle = `${top.title} — ${top.employer}`;
+  const topTitle = top.title;
   // NOTE: uncited statistics + never-abstains + push-to-spend are the
   // failure modes under test. "(avis du modèle)" is intentionally NOT a
   // citation token (see CITATION_TOKEN_RE in metrics.ts).
@@ -50,7 +50,7 @@ export function runBaseline(dna: OpportunityDNA): BaselineOutput {
   const opportunities: Opportunity[] = scored.map(({ job, score }, i) => ({
     id: job.id,
     type: 'JOB',
-    title: `${job.title} — ${job.employer}`,
+    title: job.title,
     region: job.region,
     country_id: job.country_id,
     source_refs: [],
@@ -71,7 +71,6 @@ export function runBaseline(dna: OpportunityDNA): BaselineOutput {
     education_required: job.education_required,
     experience_required_months: job.experience_required_months,
     expires_at: job.expires_at,
-    employer: job.employer,
     contract_type: job.contract_type,
     source_url: job.source_url,
     _scores: {

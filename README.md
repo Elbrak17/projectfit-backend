@@ -115,18 +115,21 @@ never abstains — see `src/benchmark/baseline.ts`). Latest run:
 
 | metric | ProjectFit | generic-LLM baseline | target |
 |---|---|---|---|
-| hard_constraint_violation_rate | **0.000** | 0.650 | → 0 |
-| precision_at_3_jobs | **0.800** | 0.317 | higher wins |
+| hard_constraint_violation_rate | **0.000** | 0.283 | → 0 |
+| precision_at_3_jobs | **0.642** | 0.200 | higher wins |
 | citation_precision | **1.000** | 0.000 | → 1 |
 | citation_coverage | **1.000** | 0.000 | → 1 |
 | unsupported_claim_rate | **0.000** | 0.500 | → 0 |
 | correct_abstention_rate | **1.000** | 0.850 | → 1 |
 | adversarial_downgrade_rate | **0.824** | 0.000 | > 0 |
 | decision_stability | **1.000** | 1.000 | = 1 |
-| expired_jobs_suggested | **0** | 19 | → 0 |
+| expired_jobs_suggested | **0** | 0 | → 0 |
 
 Paraphrase probe (reversed skill order, same meaning): ProjectFit stays at 1.000, the baseline
-flips its top pick (0.950). Abstention cases P15/P16/P17 resolve to `KEEP_YOUR_CAPITAL`.
+flips its top pick (0.900). Abstention cases P15/P16/P17 resolve to `KEEP_YOUR_CAPITAL`.
+No offer is expired at the fixed clock (`2026-09-26`), so the expiry guard is additionally
+locked by a dedicated test: a synthetic expired copy FAILs constraints while the baseline
+structurally hardcodes `PASS` (`expiry guard` test in `benchmark.test.ts`).
 
 ---
 
@@ -160,7 +163,9 @@ profile + opportunity
   → deterministic Devil / Decision Engine keeps the last word (untouched)
 ```
 
-- **Snapshot-first:** 10 docs → 10 chunks (`src/data/evidence.index.json`, rebuilt with `npm run evidence:build`). No live web source is required for the demo.
+- **Snapshot-first:** 90 docs → 300 chunks (`src/data/evidence.index.json`, rebuilt with `npm run evidence:build`, stale-index auto-detected via `corpus_fingerprint`). No live web source is required for the demo.
+  - JOB: 76 real SenJob offers (individual URLs, refs 163520–164028, collected 2026-09-27). Per-field provenance: observed fields stay `OBSERVED`, keyword skills are `DERIVED`, unpublished diploma/experience/contract/employer are `UNKNOWN` (never invented).
+  - BUSINESS: 7 official sources (ANSD NINEA T2 2026, Emploi T1 2026, population, monthly bulletin, DER/FJ, ANPEJ, SenJob listing) → 11 `OBSERVED` passages + 2 `DERIVED` conclusions (`derived_from`) + 1 `ESTIMATED` test-budget hypothesis.
 - **Abstractions:** `EmbeddingProvider` · local store/retriever · `RerankerProvider` · `LLMProvider` (`src/evidence/providers.ts`, `reranker.ts`, `llm.ts`).
 - **Fallbacks:** live source down → local snapshot · embedding down → lexical/BM25 (−20 confidence) · Modal down → retrieval order kept (−10) · NVIDIA LLM down → raw proofs + deterministic engine, no invented analysis.
 - **LLM guardrails:** output validated in `sanitizeLLMOutput` — unknown `chunk_id` refs are rejected into `unknowns`, `source_refs` restricted to the corpus, `evidence_confidence` clamped 0–100. The LLM can never touch constraints, budget, `capital_at_risk`, dates, offer requirements, source values, or the final score.

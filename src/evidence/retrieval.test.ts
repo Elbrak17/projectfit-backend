@@ -26,13 +26,14 @@ describe('retrieval local', () => {
     for (const r of results) assert.ok(r.source_id && r.source_url && r.text.length > 0);
   });
 
-  it('requête marketing remonte l’offre job-001 dans le Top-18', async () => {
+  it('requête marketing remonte une offre marketing réelle dans le Top-18', async () => {
     const chunks = chunkCorpus(CORPUS_DOCS);
     const provider = new HashEmbeddingProvider();
     const index = await buildIndex(chunks, provider);
     const q = buildEvidenceQuery(makeProfile(), { title: 'Assistant Marketing Digital' });
     const { results } = await retrieveLocal(index, provider, q, { topK: 18 });
-    assert.ok(results.some((r) => r.doc_id.includes('job-job-001')));
+    // senjob-163993 = « Chargé(e) Opérationnel et Marketing » (Dakar, URL individuelle réelle)
+    assert.ok(results.some((r) => r.doc_id.includes('senjob-163993')));
   });
 
   it('fallback lexical pur fonctionne sans embedding', () => {

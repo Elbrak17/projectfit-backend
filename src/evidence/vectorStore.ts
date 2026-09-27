@@ -4,6 +4,7 @@
 // - cosineSearch : Top-K par similarité cosinus.
 // - lexicalFallback : BM25-like simplifié (recouvrement de tokens) quand l'embedding
 //   est indisponible — confidence réduite côté appelant.
+import { createHash } from 'crypto';
 import type { CorpusChunk, ScoredChunk } from './corpusTypes';
 import type { EmbeddingProvider } from './embeddingProvider';
 
@@ -12,8 +13,37 @@ export interface VectorIndex {
   provider: string;
   model: string;
   dim: number;
+  /** SHA-256 du corpus chunké (doc_ids + textes + provenance) : un corpus modifié invalide l'index. */
+  corpus_fingerprint: string;
+  corpus_docs: number;
   chunks: CorpusChunk[];
   vectors: number[][];
+}
+
+/** Fingerprint déterministe du corpus : toute modification (ajout/édition/suppression) change l'empreinte. */
+export function fingerprintChunks(chunks: CorpusChunk[]): string {
+  const h = createHash('sha256');
+  for (const c of chunks) {
+    h.update(c.chunk_id);
+    h.update('\0');
+    h.update(c.text);
+    h.update('\0');
+    h.update(`${c.source_id}|${c.source_url}|${c.observed_at}|${c.evidence_type}|${c.geography_level}`);
+    h.update('\0');
+  }
+  return h.digest('hex');
+}
+
+/** true si l'index correspond exactement au provider ET au corpus courant. */
+export function indexMatchesCorpus(index: VectorIndex, chunks: CorpusChunk[], provider: EmbeddingProvider): boolean {
+  return (
+    index.provider === provider.name &&
+    index.model === provider.model &&
+    index.dim === provider.dim &&
+    Array.isArray(index.vectors) &&
+    index.vectors.length === chunks.length &&
+    index.corpus_fingerprint === fingerprintChunks(chunks)
+  );
 }
 
 export function cosine(a: number[], b: number[]): number {
@@ -33,6 +63,8 @@ export async function buildIndex(
     provider: provider.name,
     model: provider.model,
     dim: provider.dim,
+    corpus_fingerprint: fingerprintChunks(chunks),
+    corpus_docs: new Set(chunks.map((c) => c.doc_id)).size,
     chunks,
     vectors
   };
