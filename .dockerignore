@@ -1,0 +1,43 @@
+# Keep the build context minimal and deterministic.
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Dependencies (reinstalled inside the image from the lockfile)
+node_modules
+npm-debug.log*
+
+# Build output (rebuilt inside the image)
+dist
+build
+out
+*.tsbuildinfo
+
+# Tests & docs not needed to run the API
+coverage
+*.md
+!README.md
+docs
+
+# Env / secrets — never bake these into an image
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
+*.swp
+*.bak
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.yaml

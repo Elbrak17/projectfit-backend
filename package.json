@@ -1,0 +1,25 @@
+{
+  "name": "projectfit-backend",
+  "version": "0.1.0",
+  "description": "ProjectFit - Economic Opportunity Decision Engine (GOMYCODE x NVIDIA hackathon)",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "ts-node src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "node --test dist/**/*.test.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.3.0",
+    "@fastify/cors": "^10.0.0",
+    "uuid": "^11.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "ts-node": "^10.9.2",
+    "@types/node": "^22.7.4",
+    "@types/uuid": "^10.0.0"
+  }
+}
