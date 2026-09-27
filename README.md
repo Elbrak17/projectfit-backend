@@ -49,6 +49,13 @@ The image is a **multi-stage build** (typecheck + **`npm test`** → production 
 | `HOST` | `0.0.0.0` | Bind address |
 | `ENABLE_HYBRID` | `true` | `false` disables hybrid (job + business) decisions |
 | `ENABLE_DEVIL` | `true` | `false` disables the adversarial review pass (the Devil) |
+| `NVIDIA_API_KEY` | *(empty)* | Enables live NVIDIA calls (embeddings `nvidia/nemotron-3-embed-1b` + LLM `nvidia/nemotron-3-ultra-550b-a55b`). Empty = snapshot-first fallbacks (local hash + lexical, noop LLM) |
+| `NVIDIA_API_BASE` | `https://integrate.api.nvidia.com/v1` | NVIDIA OpenAI-compatible base URL |
+| `NVIDIA_EMBED_MODEL` | `nvidia/nemotron-3-embed-1b` | Embedding model |
+| `NVIDIA_LLM_MODEL` | `nvidia/nemotron-3-ultra-550b-a55b` | Final structured-evidence model |
+| `MODAL_RERANKER_URL` | *(empty)* | HTTPS endpoint self-hosting `nvidia/llama-nemotron-rerank-1b-v2` on Modal. Empty = passthrough fallback (retrieval order kept, −10 confidence) |
+| `MODAL_RERANKER_MODEL` | `nvidia/llama-nemotron-rerank-1b-v2` | Model tag sent to the Modal endpoint |
+| `MODAL_RERANKER_TIMEOUT_MS` | `15000` | Modal reranker timeout |
 
 Copy `.env.example` → `.env` for local overrides (`.env` is git- and docker-ignored).
 
@@ -132,12 +139,39 @@ flips its top pick (0.950). Abstention cases P15/P16/P17 resolve to `KEEP_YOUR_C
 | POST | `/api/profile/normalize` | Raw profile → `{ session_id, opportunity_dna }` |
 | POST | `/api/opportunities/generate` | `{ session_id }` → jobs snapshot + 2 business options |
 | POST | `/api/evidence/retrieve` | `{ session_id }` → ANSD/DER evidence |
+| POST | `/api/evidence/analyze` | Evidence-first pipeline: `{ session_id?, profile?, opportunity_id?, opportunity_title?, top_k?, top_n? }` → `{ retrieved_count, reranked_count, sources, supporting_evidence, contradicting_evidence, unknowns, evidence_confidence, summary?, deterministic_note }`. Read-only: never mutates the decision |
 | POST | `/api/decision/evaluate` | `{ session_id }` → Devil review + deterministic decision |
 | POST | `/api/decision/recalculate` | `{ session_id, patch }` → e.g. `{"capital_at_risk":0}` proves live recalculation |
 | GET | `/api/sources/:id` | Source detail ("Why this?") |
 | GET | `/api/session/:id/artifacts` | `profile` + `opportunities` + `evidence` + `scores` + `decision` (jury proof, §16) |
 
 CORS is open (`origin: true`) so the front-end can point at any host.
+
+---
+
+## Evidence-first pipeline (NVIDIA, snapshot-first)
+
+```
+profile + opportunity
+  → buildEvidenceQuery
+  → local vector retrieval (Top 15–20, `src/evidence/vectorStore.ts`)
+  → Modal reranker `nvidia/llama-nemotron-rerank-1b-v2` via HTTPS (Top 4–5, `src/evidence/reranker.ts`)
+  → NVIDIA `nvidia/nemotron-3-ultra-550b-a55b` → structured Evidence (`src/evidence/llm.ts`)
+  → deterministic Devil / Decision Engine keeps the last word (untouched)
+```
+
+- **Snapshot-first:** 10 docs → 10 chunks (`src/data/evidence.index.json`, rebuilt with `npm run evidence:build`). No live web source is required for the demo.
+- **Abstractions:** `EmbeddingProvider` · local store/retriever · `RerankerProvider` · `LLMProvider` (`src/evidence/providers.ts`, `reranker.ts`, `llm.ts`).
+- **Fallbacks:** live source down → local snapshot · embedding down → lexical/BM25 (−20 confidence) · Modal down → retrieval order kept (−10) · NVIDIA LLM down → raw proofs + deterministic engine, no invented analysis.
+- **LLM guardrails:** output validated in `sanitizeLLMOutput` — unknown `chunk_id` refs are rejected into `unknowns`, `source_refs` restricted to the corpus, `evidence_confidence` clamped 0–100. The LLM can never touch constraints, budget, `capital_at_risk`, dates, offer requirements, source values, or the final score.
+- **Front contract:** `POST /api/evidence/analyze` returns everything the UI needs — `retrieved_count`, `reranked_count`, `retrieval_method` / `rerank_method` / `llm_method` (+ `*_fallback` flags), `sources`, `retrieved[]`, `reranked[]` (with `geography_mismatch`), `supporting_evidence`, `contradicting_evidence`, `unknowns`, `assumptions`, `source_refs`, `evidence_confidence`, `confidence_penalties`, `summary?`, `deterministic_note`.
+- **No secrets in the repo:** `NVIDIA_API_KEY` and `MODAL_RERANKER_URL` live in `.env` only (see `.env.example`).
+
+```bash
+curl -s -X POST http://localhost:3001/api/evidence/analyze \
+  -H 'Content-Type: application/json' \
+  -d '{"profile":{"skills":["marketing","excel"],"education":"Bac+3 marketing","location":"Dakar","country_id":"SN"},"opportunity_title":"Assistant Marketing Digital"}'
+```
 
 ---
 
@@ -204,7 +238,8 @@ projectfit-backend/
 
 ## Known limitations (assumed for the demo)
 
-1. **No live LLM/NVIDIA calls (§13)** — the engine is fully deterministic over a static snapshot; `/health` reports `snapshot: true`.
+1. **No live LLM/NVIDIA calls by default (§13)** — without `NVIDIA_API_KEY` / `MODAL_RERANKER_URL` the engine is fully deterministic over a static snapshot; `/health` reports `snapshot: true`.
+   With keys set, `POST /api/evidence/analyze` calls NVIDIA embeddings + Modal reranker + Nemotron Ultra with the guardrails above.
    The benchmark baseline is a deterministic simulation of generic-prompt failure modes, not a live model call.
 2. **No timeout / circuit breaker (§11)** — no external connectors in snapshot mode, so not a live risk.
 3. **In-memory store** — sessions reset on restart (fine for a demo, not for production).

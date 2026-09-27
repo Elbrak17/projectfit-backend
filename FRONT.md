@@ -12,6 +12,10 @@ Base: `http://localhost:3001` (PORT env, défaut 3001). CORS ouvert.
 5. Preuve live: `POST /api/decision/recalculate` `{ session_id, patch:{ capital_at_risk:0 } }` → `decision.decision = "JOB"`
 6. `GET /api/session/:id/artifacts` → tout (profile, opportunities, evidence, devil, scores, decision) — preuve jury §16
 7. `GET /api/sources/:id` → détail source pour "Why this?"
+8. `POST /api/evidence/analyze` → pipeline evidence-first (retrieval 15-20 → rerank 4-5 → Nemotron Ultra) :
+   body `{ session_id?, profile?, opportunity_id?, opportunity_title?, top_k?, top_n? }`
+   → `{ retrieved_count, reranked_count, sources, supporting_evidence, contradicting_evidence, unknowns, evidence_confidence, summary?, deterministic_note }`
+   Lecture seule : ne modifie jamais la décision. Sans clés (`NVIDIA_API_KEY` / `MODAL_RERANKER_URL` vides) = fallbacks snapshot (passthrough + noop), parfait pour la démo.
 
 ## Règles d'affichage (dossier §10/§20)
 

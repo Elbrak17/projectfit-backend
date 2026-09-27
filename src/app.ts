@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { profileRoutes } from './routes/profile';
 import { opportunityRoutes } from './routes/opportunities';
+import { evidenceRoutes } from './routes/evidence';
 import { decisionRoutes } from './routes/decision';
 
 export interface BuildAppOptions {
@@ -45,6 +46,7 @@ export function buildApp(opts: BuildAppOptions = {}) {
 
   app.register(profileRoutes);
   app.register(opportunityRoutes);
+  app.register(evidenceRoutes);
   app.register(decisionRoutes);
 
   return app;
