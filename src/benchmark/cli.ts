@@ -1,6 +1,7 @@
 // Benchmark CLI — `npm run benchmark`.
 // Prints the §15 jury table and writes benchmark-results.json (git-ignored,
 // regenerate any time with this command).
+import '../../env';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { BenchmarkMetrics } from './metrics';

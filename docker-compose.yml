@@ -14,6 +14,18 @@ services:
       # Kill switches — set to "false" to disable a component (see README).
       ENABLE_HYBRID: ${ENABLE_HYBRID:-true}
       ENABLE_DEVIL: ${ENABLE_DEVIL:-true}
+      ENABLE_LIVE_JOBS: ${ENABLE_LIVE_JOBS:-false}
+      ENABLE_BUSINESS_PATH: ${ENABLE_BUSINESS_PATH:-true}
+      ENABLE_LEARN_FIRST: ${ENABLE_LEARN_FIRST:-true}
+      ENABLE_SECONDARY_SOURCES: ${ENABLE_SECONDARY_SOURCES:-true}
+      # Evidence-first live (NVIDIA + Modal). Empty = snapshot fallbacks. Never commit keys.
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_API_BASE: ${NVIDIA_API_BASE:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_EMBED_MODEL: ${NVIDIA_EMBED_MODEL:-nvidia/nemotron-3-embed-1b}
+      NVIDIA_LLM_MODEL: ${NVIDIA_LLM_MODEL:-nvidia/nemotron-3-ultra-550b-a55b}
+      MODAL_RERANKER_URL: ${MODAL_RERANKER_URL:-}
+      MODAL_RERANKER_MODEL: ${MODAL_RERANKER_MODEL:-nvidia/llama-nemotron-rerank-1b-v2}
+      MODAL_RERANKER_TIMEOUT_MS: ${MODAL_RERANKER_TIMEOUT_MS:-15000}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]

@@ -94,7 +94,8 @@ export async function runEvidencePipeline(
   try {
     reranked = await reranker.rerank(query, retrieved, topN);
     if (rerankMethod === 'passthrough-fallback') rerankFallback = true;
-  } catch {
+  } catch (e) {
+    console.error(`[evidence] rerank fallback: ${e instanceof Error ? e.message : String(e)}`);
     const { PassthroughReranker } = await import('./providers');
     reranked = await new PassthroughReranker().rerank(query, retrieved, topN);
     rerankFallback = true;
@@ -106,7 +107,8 @@ export async function runEvidencePipeline(
   let llmFallback = llmMethod === 'noop-fallback';
   try {
     structured = await llm.analyze(query, reranked);
-  } catch {
+  } catch (e) {
+    console.error(`[evidence] llm fallback: ${e instanceof Error ? e.message : String(e)}`);
     const { NoopLLM } = await import('./providers');
     structured = await new NoopLLM().analyze(query, reranked);
     llmFallback = true;

@@ -71,21 +71,28 @@ export class NvidiaEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(texts: string[]): Promise<number[][]> {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 20000);
-    try {
-      const res = await fetch(`${this.base}/embeddings`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.model, input: texts }),
-        signal: ctrl.signal
-      });
-      if (!res.ok) throw new Error(`nvidia-embed ${res.status}`);
-      const json = (await res.json()) as { data: { embedding: number[] }[] };
-      return json.data.map((d) => normalize(d.embedding.slice(0, this.dim)));
-    } finally {
-      clearTimeout(t);
+    // Batch to avoid oversized payloads on 300-chunk snapshots.
+    const BATCH = 32;
+    const out: number[][] = [];
+    for (let i = 0; i < texts.length; i += BATCH) {
+      const batch = texts.slice(i, i + BATCH);
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 20000);
+      try {
+        const res = await fetch(`${this.base}/embeddings`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: this.model, input: batch }),
+          signal: ctrl.signal
+        });
+        if (!res.ok) throw new Error(`nvidia-embed ${res.status}`);
+        const json = (await res.json()) as { data: { embedding: number[] }[] };
+        for (const d of json.data) out.push(normalize(d.embedding.slice(0, this.dim)));
+      } finally {
+        clearTimeout(t);
+      }
     }
+    return out;
   }
 
   async embedQuery(text: string): Promise<number[]> {

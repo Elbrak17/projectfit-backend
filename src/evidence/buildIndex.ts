@@ -2,6 +2,7 @@
 // Usage: npm run evidence:build [-- --out src/data/evidence.index.json]
 // Snapshot-first : fonctionne sans NVIDIA_API_KEY (fallback hash local).
 // Avec NVIDIA_API_KEY : précalcule via nvidia/nemotron-3-embed-1b et stocke les vecteurs.
+import '../env';
 import { writeFileSync } from 'fs';
 import { CORPUS_DOCS } from './corpus';
 import { chunkCorpus } from './chunking';

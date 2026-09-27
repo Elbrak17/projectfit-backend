@@ -13,8 +13,10 @@ import { NoopLLM } from './providers';
 import type { ScoredChunk } from './corpusTypes';
 
 export const NVIDIA_LLM_DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b';
-export const NVIDIA_LLM_TIMEOUT_MS = 30000;
-export const NVIDIA_LLM_MAX_TOKENS = 1200;
+export const NVIDIA_LLM_TIMEOUT_MS = Number(process.env.NVIDIA_LLM_TIMEOUT_MS ?? 120000) || 120000;
+export const NVIDIA_LLM_MAX_TOKENS = 2000;
+/** Passages tronqués côté prompt (le chunk complet reste en session/index — seule la fenêtre LLM est réduite). */
+export const NVIDIA_LLM_PASSAGE_CHARS = 800;
 
 function llmModel(): string {
   return (process.env.NVIDIA_LLM_MODEL ?? NVIDIA_LLM_DEFAULT_MODEL).trim() || NVIDIA_LLM_DEFAULT_MODEL;
@@ -35,14 +37,22 @@ RÈGLES ABSOLUES :
 - Réponds UNIQUEMENT en JSON valide, sans markdown, avec ce schéma exact :
 {"supporting_evidence":[{"chunk_id":"...","source_id":"...","quote":"... (extrait court du passage)"}],"contradicting_evidence":[{"chunk_id":"...","source_id":"...","quote":"..."}],"unknowns":["..."],"assumptions":["..."],"source_refs":["source_id..."],"evidence_confidence":0,"summary":"... (2 phrases max, pour le frontend)"}`;
 
+/** Extrait le JSON d'une réponse LLM (tolère fences markdown ```json). */
+export function extractJson(content: string): string {
+  const t = content.trim();
+  const fence = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  if (fence) return fence[1].trim();
+  return t;
+}
+
 function buildUserPrompt(query: string, passages: ScoredChunk[]): string {
   const list = passages
     .map(
       (p, i) =>
-        `[${i + 1}] chunk_id=${p.chunk_id} source_id=${p.source_id} publisher=${p.publisher} geography=${p.geography_level}${p.geography_mismatch ? ' (NATIONAL utilisée pour opportunité LOCALE : ne pas promouvoir en preuve locale)' : ''} observed_at=${p.observed_at} text=${JSON.stringify(p.text)}`
+        `[${i + 1}] chunk_id=${p.chunk_id} source_id=${p.source_id} publisher=${p.publisher} geography=${p.geography_level}${p.geography_mismatch ? ' (NATIONAL utilisée pour opportunité LOCALE : ne pas promouvoir en preuve locale)' : ''} observed_at=${p.observed_at} text=${JSON.stringify(p.text.slice(0, NVIDIA_LLM_PASSAGE_CHARS))}`
     )
     .join('\n');
-  return `Requête evidence : ${query}\nPassages sources (${passages.length}) :\n${list}`;
+  return `Requête evidence : ${query}\nPassages sources (${passages.length}) :\n${list}\nConsigne : quotes COURTES (1 phrase max), unknowns concis (max 6), assumptions max 4.`;
 }
 
 /** Valide + assainit la sortie LLM : refs inconnues -> unknowns, confidence clampée. */
@@ -141,7 +151,7 @@ export class NvidiaLLM implements LLMProvider {
       });
       if (!res.ok) throw new Error(`nvidia-llm ${res.status}`);
       const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const content = json.choices?.[0]?.message?.content ?? '';
+      const content = extractJson(json.choices?.[0]?.message?.content ?? '');
       let parsed: unknown;
       try {
         parsed = JSON.parse(content);
