@@ -10,6 +10,7 @@
     "pretest": "npm run build",
     "test": "node --test \"dist/**/*.test.js\"",
     "benchmark": "npm run build && node dist/benchmark/cli.js",
+    "evidence:build": "npm run build && node dist/evidence/buildIndex.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
