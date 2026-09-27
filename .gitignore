@@ -76,3 +76,5 @@ temp/
 *.orig
 *.rej
 *.local
+# Generated benchmark output — regenerate with `npm run benchmark`.
+benchmark-results.json

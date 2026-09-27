@@ -2,7 +2,21 @@
 // Les chiffres business critiques sont marqués ESTIMATED/UNKNOWN, jamais inventés comme faits.
 import { Opportunity, OpportunityDNA } from '../types';
 import { JOBS_SNAPSHOT } from '../data/jobs.snapshot';
-import { randomUUID } from 'crypto';
+
+// IDs business déterministes (§15 decision_stability : même état -> même ranking).
+// randomUUID() rendait le ranking instable d'un run à l'autre.
+export function businessId(title: string): string {
+  return (
+    'biz-' +
+    title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40)
+  );
+}
 
 export function buildJobOpportunities(profile: OpportunityDNA): { opp: Opportunity; skills: string[] }[] {
   return JOBS_SNAPSHOT.filter((j) => j.country_id === profile.country_id).map((j) => {
@@ -44,7 +58,7 @@ export function buildBusinessHypotheses(profile: OpportunityDNA): Opportunity[] 
 
   if (hasDigital) {
     hyps.push({
-      id: `biz-${randomUUID().slice(0, 8)}`,
+      id: businessId('Service B2B mobile'),
       type: 'BUSINESS',
       title: 'Service B2B mobile (saisie, reporting Excel, community management)',
       region: profile.location,
@@ -75,7 +89,7 @@ export function buildBusinessHypotheses(profile: OpportunityDNA): Opportunity[] 
 
   // Hypothèse volontairement fragile pour la démo du REJECT (dossier §8/§20)
   hyps.push({
-    id: `biz-${randomUUID().slice(0, 8)}`,
+    id: businessId('Commerce général stock local'),
     type: 'BUSINESS',
     title: 'Commerce général (stock + local)',
     region: profile.location,

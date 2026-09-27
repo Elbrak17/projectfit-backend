@@ -63,3 +63,32 @@ test("diplôme requis <= diplôme du profil => PASS", () => {
   const opp = makeOpportunity({ education_required: 'Bac+3 marketing' });
   assert.equal(checkHardConstraints(opp, makeProfile({ education: 'Bac+3 marketing' })).pass, true);
 });
+
+test("mobilité faible + offre hors région => FAIL (§15.A localisation)", () => {
+  const opp = makeOpportunity({ region: 'Thiès' });
+  const r = checkHardConstraints(opp, makeProfile({ location: 'Dakar', mobility: 'faible' }));
+  assert.equal(r.pass, false);
+  assert.match(r.reasons.join(' '), /Localisation incompatible : offre en Thiès/);
+});
+
+test("mobilité forte => offre hors région acceptée", () => {
+  const opp = makeOpportunity({ region: 'Thiès' });
+  assert.equal(checkHardConstraints(opp, makeProfile({ location: 'Dakar', mobility: 'forte' })).pass, true);
+});
+
+test("offre Remote hors région + mobilité faible => PASS", () => {
+  const opp = makeOpportunity({ region: 'Thiès', title: 'Agent Saisie / Support Excel (Remote Dakar)' });
+  assert.equal(checkHardConstraints(opp, makeProfile({ location: 'Dakar', mobility: 'faible' })).pass, true);
+});
+
+test("profil « Aucun diplôme » face à une offre Bac+2 => FAIL", () => {
+  const opp = makeOpportunity({ education_required: 'Bac+2' });
+  const r = checkHardConstraints(opp, makeProfile({ education: 'Aucun diplôme' }));
+  assert.equal(r.pass, false);
+  assert.match(r.reasons.join(' '), /Diplôme insuffisant : requis Bac\+2/);
+});
+
+test("format de diplôme non comparable (ex: « CAP cuisine ») => pas de faux rejet", () => {
+  const opp = makeOpportunity({ education_required: 'CAP cuisine' });
+  assert.equal(checkHardConstraints(opp, makeProfile({ education: 'Licence gestion' })).pass, true);
+});

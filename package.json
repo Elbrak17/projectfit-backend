@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "pretest": "npm run build",
     "test": "node --test \"dist/**/*.test.js\"",
+    "benchmark": "npm run build && node dist/benchmark/cli.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
